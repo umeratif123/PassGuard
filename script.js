@@ -107,17 +107,21 @@ function generatePassword(length = 16) {
   const all = CHARSET_LOWER + CHARSET_UPPER + CHARSET_NUMBERS + CHARSET_SPECIAL;
   const arr = new Uint32Array(length);
   crypto.getRandomValues(arr);
+  
+  // BUG FIX #1: Guarantee required character types to avoid infinite recursion
   let result = '';
-  for (let i = 0; i < length; i++) {
+  result += CHARSET_UPPER[arr[0] % CHARSET_UPPER.length];
+  result += CHARSET_NUMBERS[arr[1] % CHARSET_NUMBERS.length];
+  result += CHARSET_SPECIAL[arr[2] % CHARSET_SPECIAL.length];
+  
+  // Fill remaining characters
+  for (let i = 3; i < length; i++) {
     result += all[arr[i] % all.length];
   }
-  const hasUpper   = /[A-Z]/.test(result);
-  const hasNumber  = /\d/.test(result);
-  const hasSpecial = /[^a-zA-Z0-9]/.test(result);
-  if (!hasUpper || !hasNumber || !hasSpecial) {
-    return generatePassword(length);
-  }
-  return result;
+  
+  // Shuffle the result
+  const shuffled = result.split('').sort(() => Math.random() - 0.5).join('');
+  return shuffled;
 }
 
 generateBtn.addEventListener('click', () => {
@@ -134,9 +138,12 @@ generateBtn.addEventListener('click', () => {
 });
 
 let copyTimeout;
+// BUG FIX #4: Prevent race condition by disabling button during animation
 copyBtn.addEventListener('click', async () => {
   const value = input.value;
-  if (!value) return;
+  if (!value || copyBtn.disabled) return;
+
+  copyBtn.disabled = true;
 
   try {
     await navigator.clipboard.writeText(value);
@@ -162,6 +169,7 @@ copyBtn.addEventListener('click', async () => {
     copyIcon.classList.remove('hidden');
     checkIcon.classList.add('hidden');
     copyText.textContent = 'Copy';
+    copyBtn.disabled = false;
   }, 2000);
 });
 
